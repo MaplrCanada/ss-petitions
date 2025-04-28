@@ -1,520 +1,447 @@
-// Main variables
-let petitionsData = [];
-let currentPetition = null;
-let playerData = null;
-let currentView = 'pending';
-let isAdmin = false;
-let themeColors = {};
-let maxPetitionLength = 500;
-let requiredSignatures = 25;
+// html/script.js
+let maxTitleLength = 50;
+let maxDescLength = 500;
+let selectedPetitionId = null;
+let currentPetitions = [];
+let currentFilter = 'all';
 
-// Initialize NUI
-$(document).ready(function() {
-    // Listen for message from client
-    window.addEventListener('message', function(event) {
-        const data = event.data;
-        
-        if (data.action === 'openPetition') {
-            // Set theme colors if provided
-            if (data.config && data.config.theme) {
-                themeColors = data.config.theme;
-                applyTheme();
-            }
-            
-            // Set petition settings
-            if (data.config) {
-                if (data.config.maxLength) maxPetitionLength = data.config.maxLength;
-                if (data.config.requiredSignatures) {
-                    requiredSignatures = data.config.requiredSignatures;
-                    $('#required-signatures').text(requiredSignatures);
-                }
-                $('#max-chars').text(maxPetitionLength);
-            }
-            
-            // Store player data
-            playerData = data.playerInfo;
-            
-            // Check if admin
-            isAdmin = data.isAdmin || false;
-            toggleAdminElements();
-            
-            // Load petitions data
-            petitionsData = data.petitions || [];
-            filterAndRenderPetitions();
-            
-            // Show UI
-            $('body').fadeIn(300);
-        }
-    });
+// Utility Functions
+function formatTimestamp(timestamp) {
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000);
     
-    // Apply initial event listeners
-    setupEventListeners();
-});
-
-// Apply theme colors
-function applyTheme() {
-    // Create CSS variables
-    const root = document.documentElement;
-    if (themeColors.primary) root.style.setProperty('--primary-color', themeColors.primary);
-    if (themeColors.secondary) root.style.setProperty('--secondary-color', themeColors.secondary);
-    if (themeColors.accent) root.style.setProperty('--accent-color', themeColors.accent);
-    if (themeColors.background) root.style.setProperty('--bg-color', themeColors.background);
-    if (themeColors.text) root.style.setProperty('--text-color', themeColors.text);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+    
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return date.toLocaleDateString(undefined, options);
 }
 
-// Toggle admin elements visibility
-function toggleAdminElements() {
-    if (isAdmin) {
-        $('.admin-only').show();
-    } else {
-        $('.admin-only').hide();
-    }
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notification-text');
+    
+    notificationText.textContent = message;
+    notification.classList.add('show');
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
 }
 
-// Setup all event listeners
-function setupEventListeners() {
-    // Close button
-    $('#close-btn').on('click', function() {
-        closeUI();
+// Player Petition Menu
+function initPetitionMenu(data) {
+    // Set max lengths
+    maxTitleLength = data.maxTitle;
+    maxDescLength = data.maxDesc;
+    document.getElementById('title-max').textContent = maxTitleLength;
+    document.getElementById('desc-max').textContent = maxDescLength;
+    
+    // Load categories
+    const categorySelect = document.getElementById('petition-category');
+    categorySelect.innerHTML = '';
+    
+    data.categories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        categorySelect.appendChild(option);
     });
     
-    // Escape key to close
-    $(document).keyup(function(e) {
-        if (e.key === "Escape") {
-            closeUI();
-        }
-    });
+    // Update my petitions list
+    updateMyPetitionsList(data.petitions);
     
-    // Navigation buttons
-    $('#pending-btn').on('click', function() {
-        $('.nav-buttons button').removeClass('active');
-        $(this).addClass('active');
-        currentView = 'pending';
-        filterAndRenderPetitions();
-    });
-    
-    $('#approved-btn').on('click', function() {
-        $('.nav-buttons button').removeClass('active');
-        $(this).addClass('active');
-        currentView = 'approved';
-        filterAndRenderPetitions();
-    });
-    
-    $('#my-petitions-btn').on('click', function() {
-        $('.nav-buttons button').removeClass('active');
-        $(this).addClass('active');
-        currentView = 'my';
-        filterAndRenderPetitions();
-    });
-    
-    // Create petition button
-    $('#create-btn').on('click', function() {
-        showSection('create-petition');
-    });
-    
-    // Admin panel button
-    $('#admin-btn').on('click', function() {
-        showSection('admin-panel');
-        renderAdminPetitions('pending');
-    });
-    
-    // Search input
-    $('#search-input').on('input', function() {
-        filterAndRenderPetitions();
-    });
-    
-    // Character counter
-    $('#petition-content').on('input', function() {
-        const length = $(this).val().length;
-        $('#char-count').text(length);
-        
-        // Visual feedback
-        if (length > maxPetitionLength * 0.8) {
-            $('#char-count').css('color', '#f39c12');
-        } else {
-            $('#char-count').css('color', '');
-        }
-    });
-    
-    // Cancel petition button
-    $('#cancel-petition').on('click', function() {
-        showSection('petitions-list');
-        clearCreateForm();
-    });
-    
-    // Submit petition button
-    $('#submit-petition').on('click', function() {
-        submitPetition();
-    });
-    
-    // Back to list button
-    $('#back-to-list').on('click', function() {
-        showSection('petitions-list');
-    });
-    
-    // Sign petition button
-    $('#sign-petition').on('click', function() {
-        if ($(this).hasClass('signed')) return;
-        signPetition();
-    });
-    
-    // Admin tabs
-    $('#pending-review-tab').on('click', function() {
-        $('.admin-tabs button').removeClass('active');
-        $(this).addClass('active');
-        renderAdminPetitions('pending');
-    });
-    
-    $('#all-petitions-tab').on('click', function() {
-        $('.admin-tabs button').removeClass('active');
-        $(this).addClass('active');
-        renderAdminPetitions('all');
-    });
-    
-    // Admin back button
-    $('#admin-back').on('click', function() {
-        $('.admin-detail').addClass('hidden');
-        $('.admin-petitions').removeClass('hidden');
-    });
-    
-    // Admin action buttons
-    $('#admin-approve').on('click', function() {
-        adminAction('approve');
-    });
-    
-    $('#admin-reject').on('click', function() {
-        adminAction('reject');
-    });
+    // Show the menu
+    document.getElementById('petition-menu').classList.remove('hidden');
 }
 
-// Show a specific section
-function showSection(sectionId) {
-    $('.section').removeClass('active');
-    $(`#${sectionId}`).addClass('active');
-}
-
-// Filter and render petitions based on current view and search
-function filterAndRenderPetitions() {
-    const searchTerm = $('#search-input').val().toLowerCase();
-    let filteredPetitions = [];
-    
-    switch(currentView) {
-        case 'pending':
-            filteredPetitions = petitionsData.filter(p => p.status === 'pending');
-            break;
-        case 'approved':
-            filteredPetitions = petitionsData.filter(p => p.status === 'approved');
-            break;
-        case 'my':
-            filteredPetitions = petitionsData.filter(p => p.author_id === playerData.citizenid);
-            break;
-        default:
-            filteredPetitions = petitionsData;
-    }
-    
-    // Apply search filter if needed
-    if (searchTerm) {
-        filteredPetitions = filteredPetitions.filter(p => 
-            p.title.toLowerCase().includes(searchTerm) || 
-            p.content.toLowerCase().includes(searchTerm)
-        );
-    }
-    
-    renderPetitions(filteredPetitions);
-}
-
-// Render petitions list
-function renderPetitions(petitions) {
-    const container = $('.petitions-container');
-    container.empty();
+function updateMyPetitionsList(petitions) {
+    const petitionsList = document.querySelector('#my-petitions .petitions-list');
     
     if (petitions.length === 0) {
-        $('.no-petitions').removeClass('hidden');
-    } else {
-        $('.no-petitions').addClass('hidden');
+        petitionsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No petitions found</p>
+            </div>
+        `;
+        return;
+    }
+    
+    petitionsList.innerHTML = '';
+    
+    // Sort by timestamp (newest first)
+    petitions.sort((a, b) => b.timestamp - a.timestamp);
+    
+    petitions.forEach(petition => {
+        const petitionElement = document.createElement('div');
+        petitionElement.className = 'petition-item';
+        petitionElement.innerHTML = `
+            <div class="petition-header">
+                <div class="petition-title">${petition.title}</div>
+                <div class="petition-status status-${petition.status}">${petition.status}</div>
+            </div>
+            <div class="petition-meta">
+                <div><i class="fas fa-tag"></i> ${petition.category}</div>
+                <div><i class="fas fa-clock"></i> ${formatTimestamp(petition.timestamp)}</div>
+            </div>
+        `;
         
-        petitions.forEach(petition => {
-            const card = $(`
-                <div class="petition-card" data-id="${petition.id}">
-                    <span class="status ${petition.status}">${capitalizeFirstLetter(petition.status)}</span>
-                    <h3>${petition.title}</h3>
-                    <p>${truncateText(petition.content, 100)}</p>
-                    <div class="meta">
-                        <span>${formatDate(petition.created_at)}</span>
-                        <div class="signatures">
-                            <i class="fas fa-signature"></i>
-                            <span>${petition.signatures.length} / ${requiredSignatures}</span>
-                        </div>
-                    </div>
-                </div>
-            `);
+        // Show petition details on click
+        petitionElement.addEventListener('click', () => {
+            const detailTitle = petition.title;
+            const detailDate = formatTimestamp(petition.timestamp);
+            const detailStatus = petition.status;
+            const detailCategory = petition.category;
+            const detailDescription = petition.description;
             
-            card.on('click', function() {
-                const petitionId = $(this).data('id');
-                viewPetitionDetails(petitionId);
-            });
-            
-            container.append(card);
+            showNotification(`Viewing petition: ${detailTitle}`);
         });
-    }
+        
+        petitionsList.appendChild(petitionElement);
+    });
 }
 
-// View petition details
-function viewPetitionDetails(petitionId) {
-    const petition = petitionsData.find(p => p.id === petitionId);
-    if (!petition) return;
-    
-    currentPetition = petition;
-    
-    // Set details
-    $('#detail-title').text(petition.title);
-    $('#detail-status').text(capitalizeFirstLetter(petition.status)).attr('class', 'status ' + petition.status);
-    $('#detail-author').text(petition.author_name);
-    $('#detail-date').text(formatDate(petition.created_at));
-    $('#detail-signatures').text(petition.signatures.length + ' of ' + requiredSignatures);
-    $('#detail-content').text(petition.content);
-    
-    // Admin comment
-    if (petition.admin_comment) {
-        $('#detail-admin-comment').text(petition.admin_comment);
-        $('#admin-comment').removeClass('hidden');
-    } else {
-        $('#admin-comment').addClass('hidden');
-    }
-    
-    // Render signatures
-    renderSignatures(petition.signatures);
-    
-    // Check if player already signed
-    const alreadySigned = petition.signatures.some(s => s.citizenId === playerData.citizenid);
-    
-    // Update sign button
-    if (alreadySigned || petition.status !== 'pending' || petition.author_id === playerData.citizenid) {
-        $('#sign-petition').addClass('signed').text('Already Signed');
-        if (petition.status !== 'pending') {
-            $('#sign-petition').text('Petition Closed');
-        }
-        if (petition.author_id === playerData.citizenid) {
-            $('#sign-petition').text('Your Petition');
-        }
-    } else {
-        $('#sign-petition').removeClass('signed').text('Sign Petition');
-    }
-    
-    showSection('view-petition');
+// Admin Panel
+function initAdminPanel(data) {
+    currentPetitions = data.petitions;
+    updateAdminPetitionsList(data.petitions);
+    document.getElementById('admin-panel').classList.remove('hidden');
 }
 
-// Render signatures list
-function renderSignatures(signatures) {
-    const container = $('#signatures-list');
-    container.empty();
+function updateAdminPetitionsList(petitions) {
+    const petitionsList = document.querySelector('#admin-panel .petitions-list');
     
-    if (signatures.length === 0) {
-        container.append('<p>No signatures yet.</p>');
-    } else {
-        signatures.forEach(signature => {
-            container.append(`
-                <div class="signature-item">
-                    <span>${signature.name}</span>
-                    <span>${formatDate(signature.date)}</span>
-                </div>
-            `);
-        });
-    }
-}
-
-// Submit a new petition
-function submitPetition() {
-    const title = $('#petition-title').val().trim();
-    const content = $('#petition-content').val().trim();
-    
-    // Validation
-    if (!title) {
-        // Show error
+    if (petitions.length === 0) {
+        petitionsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No petitions found</p>
+            </div>
+        `;
         return;
     }
     
-    if (!content) {
-        // Show error
-        return;
+    petitionsList.innerHTML = '';
+    
+    // Filter petitions based on current filter
+    let filteredPetitions = petitions;
+    if (currentFilter !== 'all') {
+        filteredPetitions = petitions.filter(petition => petition.status === currentFilter);
     }
     
-    // Send to client
-    $.post('https://ss-petition/createPetition', JSON.stringify({
-        title: title,
-        content: content
-    }));
-    
-    // Clear form and return to list
-    clearCreateForm();
-    showSection('petitions-list');
-    
-    // Refresh petitions after a delay
-    setTimeout(refreshPetitions, 1000);
-}
-
-// Clear create petition form
-function clearCreateForm() {
-    $('#petition-title').val('');
-    $('#petition-content').val('');
-    $('#char-count').text('0');
-}
-
-// Sign a petition
-function signPetition() {
-    if (!currentPetition) return;
-    
-    $.post('https://ss-petition/signPetition', JSON.stringify({
-        petitionId: currentPetition.id
-    }));
-    
-    // Disable button temporarily
-    $('#sign-petition').addClass('signed').text('Processing...');
-    
-    // Refresh after a delay
-    setTimeout(refreshPetitions, 1000);
-}
-
-// Render admin petitions
-function renderAdminPetitions(view) {
-    const container = $('.admin-petitions');
-    container.empty();
-    $('.admin-detail').addClass('hidden');
-    container.removeClass('hidden');
-    
-    let filteredPetitions;
-    
-    if (view === 'pending') {
-        // Show petitions that need review (pending with enough signatures)
-        filteredPetitions = petitionsData.filter(p => 
-            p.status === 'pending' && p.signatures.length >= requiredSignatures
+    // Apply search filter if search box has content
+    const searchText = document.getElementById('petition-search').value.toLowerCase();
+    if (searchText) {
+        filteredPetitions = filteredPetitions.filter(petition => 
+            petition.title.toLowerCase().includes(searchText) || 
+            petition.description.toLowerCase().includes(searchText) ||
+            petition.playerName.toLowerCase().includes(searchText)
         );
-    } else {
-        // All petitions
-        filteredPetitions = [...petitionsData];
     }
     
     if (filteredPetitions.length === 0) {
-        container.append('<p class="no-petitions-message">No petitions to review.</p>');
-    } else {
-        filteredPetitions.forEach(petition => {
-            const card = $(`
-                <div class="admin-petition-card" data-id="${petition.id}">
-                    <span class="status ${petition.status}">${capitalizeFirstLetter(petition.status)}</span>
-                    <h3>${petition.title}</h3>
-                    <p>By ${petition.author_name} on ${formatDate(petition.created_at)}</p>
-                    <div class="signatures">
-                        <i class="fas fa-signature"></i>
-                        <span>${petition.signatures.length} signatures</span>
-                    </div>
-                </div>
-            `);
-            
-            card.on('click', function() {
-                viewAdminPetitionDetails($(this).data('id'));
-            });
-            
-            container.append(card);
-        });
+        petitionsList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <p>No matching petitions found</p>
+            </div>
+        `;
+        return;
     }
-}
-
-// View admin petition details
-function viewAdminPetitionDetails(petitionId) {
-    const petition = petitionsData.find(p => p.id === petitionId);
-    if (!petition) return;
     
-    currentPetition = petition;
-    
-    // Set details
-    $('#admin-detail-title').text(petition.title);
-    $('#admin-detail-author').text(petition.author_name);
-    $('#admin-detail-date').text(formatDate(petition.created_at));
-    $('#admin-detail-content').text(petition.content);
-    $('#admin-detail-signatures').text(petition.signatures.length);
-    
-    // Clear comment field
-    $('#admin-comment-input').val('');
-    
-    // Show detail view
-    $('.admin-petitions').addClass('hidden');
-    $('.admin-detail').removeClass('hidden');
-    
-    // Disable buttons if already handled
-    if (petition.status !== 'pending') {
-        $('#admin-approve, #admin-reject').prop('disabled', true);
-        $('#admin-comment-input').val(petition.admin_comment || '').prop('disabled', true);
-    } else {
-        $('#admin-approve, #admin-reject').prop('disabled', false);
-        $('#admin-comment-input').prop('disabled', false);
-    }
-}
-
-// Admin action on petition
-function adminAction(action) {
-    if (!currentPetition) return;
-    
-    const comment = $('#admin-comment-input').val().trim();
-    
-    $.post('https://ss-petition/adminAction', JSON.stringify({
-        petitionId: currentPetition.id,
-        action: action,
-        comment: comment
-    }));
-    
-    // Return to admin list
-    $('.admin-detail').addClass('hidden');
-    $('.admin-petitions').removeClass('hidden');
-    
-    // Refresh after a delay
-    setTimeout(() => {
-        refreshPetitions();
-        renderAdminPetitions('pending');
-    }, 1000);
-}
-
-// Refresh petitions data
-function refreshPetitions() {
-    $.post('https://ss-petition/refreshPetitions', {}, function(data) {
-        petitionsData = data.petitions;
-        isAdmin = data.isAdmin;
-        filterAndRenderPetitions();
+    filteredPetitions.forEach(petition => {
+        const petitionElement = document.createElement('div');
+        petitionElement.className = 'petition-item';
+        if (selectedPetitionId === petition.id) {
+            petitionElement.classList.add('active');
+        }
         
-        // Update current petition if viewing details
-        if (currentPetition && $('#view-petition').hasClass('active')) {
-            const updatedPetition = petitionsData.find(p => p.id === currentPetition.id);
-            if (updatedPetition) {
-                viewPetitionDetails(updatedPetition.id);
-            }
+        petitionElement.innerHTML = `
+            <div class="petition-header">
+                <div class="petition-title">${petition.title}</div>
+                <div class="petition-status status-${petition.status}">${petition.status}</div>
+            </div>
+            <div class="petition-meta">
+                <div><i class="fas fa-user"></i> ${petition.playerName}</div>
+                <div><i class="fas fa-clock"></i> ${formatTimestamp(petition.timestamp)}</div>
+            </div>
+        `;
+        
+        // Show petition details on click
+        petitionElement.addEventListener('click', () => {
+            selectedPetitionId = petition.id;
+            showPetitionDetails(petition);
+            
+            // Update active state
+            document.querySelectorAll('.petition-item').forEach(el => el.classList.remove('active'));
+            petitionElement.classList.add('active');
+        });
+        
+        petitionsList.appendChild(petitionElement);
+    });
+}
+
+function showPetitionDetails(petition) {
+    // Hide empty state and show content
+    document.querySelector('.petition-details .empty-state').classList.remove('active');
+    document.querySelector('.petition-content').classList.remove('hidden');
+    
+    // Update details
+    document.getElementById('detail-title').textContent = petition.title;
+    document.getElementById('detail-submitter').textContent = petition.playerName;
+    document.getElementById('detail-category').textContent = petition.category;
+    document.getElementById('detail-date').textContent = formatTimestamp(petition.timestamp);
+    document.getElementById('detail-description').textContent = petition.description;
+    
+    // Update status
+    document.querySelectorAll('.status-option').forEach(option => {
+        if (option.dataset.status === petition.status) {
+            option.classList.add('active');
+        } else {
+            option.classList.remove('active');
         }
     });
-}
-
-// Close UI and send message to client
-function closeUI() {
-    $('body').fadeOut(300);
-    $.post('https://ss-petition/closePetition', JSON.stringify({}));
-}
-
-// Helper Functions
-function truncateText(text, maxLength) {
-    if (text.length > maxLength) {
-        return text.substring(0, maxLength) + '...';
+    
+    // Clear comment field
+    document.getElementById('admin-comment').value = '';
+    
+    // Update comments
+    const commentsList = document.getElementById('comments-list');
+    
+    if (petition.comments && petition.comments.length > 0) {
+        commentsList.innerHTML = '';
+        
+        petition.comments.forEach(comment => {
+            const commentElement = document.createElement('div');
+            commentElement.className = 'comment';
+            commentElement.innerHTML = `
+                <div class="comment-header">
+                    <div>${comment.author}</div>
+                    <div>${formatTimestamp(comment.timestamp)}</div>
+                </div>
+                <div class="comment-text">${comment.text}</div>
+            `;
+            commentsList.appendChild(commentElement);
+        });
+    } else {
+        commentsList.innerHTML = '<div class="empty-comments">No comments yet</div>';
     }
-    return text;
 }
 
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
+// NUI Message Handler
+window.addEventListener('message', function(event) {
+    const data = event.data;
+    
+    switch (data.action) {
+        case 'openPetitionMenu':
+            initPetitionMenu(data);
+            break;
+        case 'openAdminPanel':
+            initAdminPanel(data);
+            break;
+    }
+});
 
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.dataset.tab;
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            
+            // Update active content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        });
     });
-}
+    
+    // Character counters
+    const titleInput = document.getElementById('petition-title');
+    const descInput = document.getElementById('petition-description');
+    const titleCounter = document.getElementById('title-counter');
+    const descCounter = document.getElementById('desc-counter');
+    
+    titleInput.addEventListener('input', () => {
+        titleCounter.textContent = titleInput.value.length;
+    });
+    
+    descInput.addEventListener('input', () => {
+        descCounter.textContent = descInput.value.length;
+    });
+    
+    // Close buttons
+    document.getElementById('close-petition').addEventListener('click', () => {
+        document.getElementById('petition-menu').classList.add('hidden');
+        fetch('https://qb-petition/closePetitionUI', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        });
+    });
+    
+    document.getElementById('close-admin').addEventListener('click', () => {
+        document.getElementById('admin-panel').classList.add('hidden');
+        fetch('https://qb-petition/closePetitionUI', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        });
+    });
+    
+    // Submit petition form
+    document.getElementById('petition-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const title = titleInput.value.trim();
+        const category = document.getElementById('petition-category').value;
+        const description = descInput.value.trim();
+        
+        if (!title) {
+            showNotification('Please enter a petition title', 'error');
+            return;
+        }
+        
+        if (!description) {
+            showNotification('Please enter a petition description', 'error');
+            return;
+        }
+        
+        // Submit petition
+        fetch('https://qb-petition/submitPetition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                title,
+                category,
+                description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                titleInput.value = '';
+                descInput.value = '';
+                titleCounter.textContent = '0';
+                descCounter.textContent = '0';
+                
+                // Refresh the petitions list
+                fetch('https://qb-petition/refreshPetitions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ isAdmin: false })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    updateMyPetitionsList(data.petitions);
+                });
+            } else {
+                showNotification(data.message, 'error');
+            }
+        });
+    });
+    
+    // Status options
+    document.querySelectorAll('.status-option').forEach(option => {
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.status-option').forEach(opt => opt.classList.remove('active'));
+            option.classList.add('active');
+        });
+    });
+    
+    // Update petition button
+    document.getElementById('update-petition').addEventListener('click', () => {
+        if (!selectedPetitionId) return;
+        
+        const activeStatus = document.querySelector('.status-option.active').dataset.status;
+        const comment = document.getElementById('admin-comment').value.trim();
+        
+        fetch('https://qb-petition/updatePetition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                petitionId: selectedPetitionId,
+                status: activeStatus,
+                comment
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                
+                // Refresh the petitions list
+                fetch('https://qb-petition/refreshPetitions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ isAdmin: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    currentPetitions = data.petitions;
+                    updateAdminPetitionsList(data.petitions);
+                    
+                    // Update petition details if still selected
+                    const updatedPetition = data.petitions.find(p => p.id === selectedPetitionId);
+                    if (updatedPetition) {
+                        showPetitionDetails(updatedPetition);
+                    }
+                });
+            } else {
+                showNotification(data.message, 'error');
+            }
+        });
+    });
+    
+    // Admin filters
+    document.querySelectorAll('.filter').forEach(filter => {
+        filter.addEventListener('click', () => {
+            document.querySelectorAll('.filter').forEach(f => f.classList.remove('active'));
+            filter.classList.add('active');
+            
+            currentFilter = filter.dataset.filter;
+            updateAdminPetitionsList(currentPetitions);
+        });
+    });
+    
+    // Search box
+    document.getElementById('petition-search').addEventListener('input', (e) => {
+        updateAdminPetitionsList(currentPetitions);
+    });
+});
+
+// Close on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.getElementById('petition-menu').classList.add('hidden');
+        document.getElementById('admin-panel').classList.add('hidden');
+        
+        fetch('https://qb-petition/closePetitionUI', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        });
+    }
+});

@@ -1,299 +1,157 @@
+-- server/main.lua
 local QBCore = exports['qb-core']:GetCoreObject()
 local Petitions = {}
 
--- Initialize/load petitions from database on resource start
-CreateThread(function()
-    -- Ensure the database table exists
-    MySQL.Async.execute([[
-        CREATE TABLE IF NOT EXISTS `petitions` (
-            `id` INT AUTO_INCREMENT PRIMARY KEY,
-            `title` VARCHAR(100) NOT NULL,
-            `content` TEXT NOT NULL,
-            `author_id` VARCHAR(50) NOT NULL,
-            `author_name` VARCHAR(100) NOT NULL,
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `status` ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-            `admin_comment` TEXT,
-            `expires_at` TIMESTAMP NULL,
-            `signatures` JSON NOT NULL
-        )
-    ]], {})
-    
-    -- Load existing petitions from database
-    MySQL.Async.fetchAll('SELECT * FROM petitions', {}, function(results)
-        if results and #results > 0 then
-            for _, petition in ipairs(results) do
-                -- Parse signatures from JSON
-                petition.signatures = json.decode(petition.signatures) or {}
-                Petitions[petition.id] = petition
-            end
-            print('Loaded ' .. #results .. ' petitions from database')
-        else
-            print('No petitions found in database')
+-- Create a unique ID for petitions
+local function CreatePetitionId()
+    return tostring(os.time() .. math.random(1000, 9999))
+end
+
+-- Check if player is admin
+local function IsPlayerAdmin(source)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if Player then
+        local PlayerGroup = QBCore.Functions.GetPermission(source)
+        local AdminGroups = {
+            ['mod'] = true,
+            ['admin'] = true,
+            ['god'] = true
+        }
+        
+        -- Check if the minimum required admin level is met
+        if Config.MinAdminLevel == 'mod' then
+            return AdminGroups[PlayerGroup] ~= nil
+        elseif Config.MinAdminLevel == 'admin' then
+            return PlayerGroup == 'admin' or PlayerGroup == 'god'
+        elseif Config.MinAdminLevel == 'god' then
+            return PlayerGroup == 'god'
         end
-    end)
-end)
+    end
+    return false
+end
 
 -- Create a new petition
-RegisterNetEvent('ss-petition:server:createPetition')
-AddEventHandler('ss-petition:server:createPetition', function(data)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
+QBCore.Functions.CreateCallback('qb-petition:server:createPetition', function(source, cb, data)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return cb(false) end
     
-    if not Player then return end
-    
-    -- Check cooldown
     local citizenId = Player.PlayerData.citizenid
-    local hasCooldown = checkPetitionCooldown(citizenId)
     
-    if hasCooldown then
-        TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.cooldownActive)
-        return
-    end
-    
-    -- Create expiry date
-    local expiryDate = os.time() + (Config.PetitionSettings.expiryDays * 24 * 60 * 60)
-    local expiryFormatted = os.date("%Y-%m-%d %H:%M:%S", expiryDate)
-    
-    -- Insert petition into database
-    MySQL.Async.insert('INSERT INTO petitions (title, content, author_id, author_name, expires_at, signatures) VALUES (?, ?, ?, ?, ?, ?)',
-    {
-        data.title,
-        data.content,
-        citizenId,
-        Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
-        expiryFormatted,
-        json.encode({}) -- Empty signatures array
-    }, function(id)
-        if id > 0 then
-            -- Add to memory cache
-            Petitions[id] = {
-                id = id,
-                title = data.title,
-                content = data.content,
-                author_id = citizenId,
-                author_name = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname,
-                created_at = os.date("%Y-%m-%d %H:%M:%S"),
-                status = 'pending',
-                expires_at = expiryFormatted,
-                signatures = {}
-            }
-            
-            TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.petitionCreated)
-            
-            -- Notify admins if enabled
-            if Config.AdminSettings.notifyNewPetition then
-                notifyAdmins('New petition created: ' .. data.title)
-            end
-        else
-            TriggerClientEvent('ss-petition:client:showNotification', src, "Error creating petition.")
-        end
-    end)
-end)
-
--- Sign a petition
-RegisterNetEvent('ss-petition:server:signPetition')
-AddEventHandler('ss-petition:server:signPetition', function(data)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    
-    if not Player then return end
-    
-    local petitionId = data.petitionId
-    local citizenId = Player.PlayerData.citizenid
-    local playerName = Player.PlayerData.charinfo.firstname .. ' ' .. Player.PlayerData.charinfo.lastname
-    
-    -- Check if petition exists
-    if not Petitions[petitionId] then
-        TriggerClientEvent('ss-petition:client:showNotification', src, "This petition doesn't exist.")
-        return
-    end
-    
-    -- Check if already signed
-    for _, signature in ipairs(Petitions[petitionId].signatures) do
-        if signature.citizenId == citizenId then
-            TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.alreadySigned)
+    -- Check for cooldown
+    for _, petition in pairs(Petitions) do
+        if petition.citizenId == citizenId and (os.time() - petition.timestamp) < (Config.PetitionCooldown * 60) then
+            local remainingTime = math.ceil(((Config.PetitionCooldown * 60) - (os.time() - petition.timestamp)) / 60)
+            cb(false, "You need to wait " .. remainingTime .. " minutes before submitting another petition.")
             return
         end
     end
     
-    -- Add signature
-    table.insert(Petitions[petitionId].signatures, {
+    -- Create petition
+    local petitionId = CreatePetitionId()
+    local newPetition = {
+        id = petitionId,
         citizenId = citizenId,
-        name = playerName,
-        date = os.date("%Y-%m-%d %H:%M:%S")
-    })
+        playerName = Player.PlayerData.charinfo.firstname .. " " .. Player.PlayerData.charinfo.lastname,
+        title = data.title,
+        description = data.description,
+        category = data.category,
+        timestamp = os.time(),
+        status = "pending", -- pending, inprogress, resolved, rejected
+        assignedAdmin = nil,
+        comments = {},
+    }
     
-    -- Update database
-    MySQL.Async.execute('UPDATE petitions SET signatures = ? WHERE id = ?',
-    {
-        json.encode(Petitions[petitionId].signatures),
-        petitionId
-    })
+    Petitions[petitionId] = newPetition
+    cb(true, "Petition submitted successfully!")
     
-    TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.petitionSigned)
-    
-    -- Check if reached required signatures
-    if #Petitions[petitionId].signatures >= Config.PetitionSettings.requiredSignatures and Petitions[petitionId].status == 'pending' then
-        notifyAdmins(Config.Notifications.adminReviewNeeded)
-    end
-end)
-
--- Admin actions (approve/reject)
-RegisterNetEvent('ss-petition:server:adminAction')
-AddEventHandler('ss-petition:server:adminAction', function(data)
-    local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    
-    if not Player then return end
-    
-    -- Check admin permission
-    if not hasAdminPermission(Player) then
-        TriggerClientEvent('ss-petition:client:showNotification', src, "You don't have permission for this action.")
-        return
-    end
-    
-    local petitionId = data.petitionId
-    local action = data.action -- 'approve' or 'reject'
-    local comment = data.comment or ""
-    
-    -- Check if petition exists
-    if not Petitions[petitionId] then
-        TriggerClientEvent('ss-petition:client:showNotification', src, "This petition doesn't exist.")
-        return
-    end
-    
-    -- Update petition status
-    Petitions[petitionId].status = action
-    Petitions[petitionId].admin_comment = comment
-    
-    -- Update database
-    MySQL.Async.execute('UPDATE petitions SET status = ?, admin_comment = ? WHERE id = ?',
-    {
-        action,
-        comment,
-        petitionId
-    })
-    
-    -- Notify the author if they're online
-    local author = QBCore.Functions.GetPlayerByCitizenId(Petitions[petitionId].author_id)
-    if author then
-        if action == 'approve' then
-            TriggerClientEvent('ss-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionApproved)
-        else
-            TriggerClientEvent('ss-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionRejected)
+    -- Notify admins
+    for _, player in pairs(QBCore.Functions.GetPlayers()) do
+        if IsPlayerAdmin(player) then
+            TriggerClientEvent('QBCore:Notify', player, "New petition submitted: " .. data.title, "primary", 5000)
         end
     end
-    
-    TriggerClientEvent('ss-petition:client:showNotification', src, "Petition has been " .. action .. "d.")
 end)
 
--- Get petition data for UI
-QBCore.Functions.CreateCallback('ss-petition:server:getPetitionData', function(source, cb)
+-- Get player's petitions
+QBCore.Functions.CreateCallback('qb-petition:server:getMyPetitions', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return cb({}) end
     
-    if not Player then 
-        cb({petitions = {}, isAdmin = false})
-        return
-    end
-    
-    local isAdmin = hasAdminPermission(Player)
     local citizenId = Player.PlayerData.citizenid
+    local myPetitions = {}
     
-    -- Check for expired petitions
-    if Config.AdminSettings.autoDeclineExpired then
-        processExpiredPetitions()
-    end
-    
-    -- Convert to array and filter as needed
-    local petitionsArray = {}
     for _, petition in pairs(Petitions) do
-        -- Admin sees all, regular players only see pending or approved
-        if isAdmin or petition.status ~= 'rejected' or petition.author_id == citizenId then
-            table.insert(petitionsArray, petition)
+        if petition.citizenId == citizenId then
+            table.insert(myPetitions, petition)
         end
     end
     
-    -- Sort by creation date (newest first)
-    table.sort(petitionsArray, function(a, b)
-        return a.created_at > b.created_at
+    cb(myPetitions)
+end)
+
+-- Get all petitions (admin only)
+QBCore.Functions.CreateCallback('qb-petition:server:getAllPetitions', function(source, cb)
+    if not IsPlayerAdmin(source) then 
+        cb({})
+        return
+    end
+    
+    local petitionsList = {}
+    for _, petition in pairs(Petitions) do
+        table.insert(petitionsList, petition)
+    end
+    
+    -- Sort by timestamp (newest first)
+    table.sort(petitionsList, function(a, b)
+        return a.timestamp > b.timestamp
     end)
     
-    cb({petitions = petitionsArray, isAdmin = isAdmin})
+    cb(petitionsList)
 end)
 
--- Helper functions
-function hasAdminPermission(Player)
-    if not Player then return false end
-    
-    local permission = Config.AdminSettings.requiredPermission
-    
-    -- Check for admin or god level in QBCore
-    if Player.PlayerData.admin == 'admin' or Player.PlayerData.admin == 'god' then
-        return true
+-- Update petition status (admin only)
+QBCore.Functions.CreateCallback('qb-petition:server:updatePetition', function(source, cb, petitionId, status, comment)
+    if not IsPlayerAdmin(source) then
+        cb(false)
+        return
     end
     
-    -- Check job (for police chief, mayor etc.)
-    if permission == 'police' and Player.PlayerData.job.name == 'police' and Player.PlayerData.job.grade.level >= 4 then
-        return true
-    end
-    
-    if permission == 'mayor' and Player.PlayerData.job.name == 'mayor' then
-        return true
-    end
-    
-    return false
-end
-
-function checkPetitionCooldown(citizenId)
-    local cooldownTime = Config.PetitionSettings.cooldownMinutes * 60
-    
-    -- Check if player has any recent petitions
-    for _, petition in pairs(Petitions) do
-        if petition.author_id == citizenId then
-            local createdTime = os.time(os.date("!*t", petition.created_at))
-            local currentTime = os.time()
-            
-            if (currentTime - createdTime) < cooldownTime then
-                return true -- Still in cooldown
-            end
+    if Petitions[petitionId] then
+        local adminPlayer = QBCore.Functions.GetPlayer(source)
+        local adminName = adminPlayer.PlayerData.charinfo.firstname .. " " .. adminPlayer.PlayerData.charinfo.lastname
+        
+        Petitions[petitionId].status = status
+        Petitions[petitionId].assignedAdmin = adminName
+        
+        if comment and comment ~= "" then
+            table.insert(Petitions[petitionId].comments, {
+                author = adminName,
+                text = comment,
+                timestamp = os.time()
+            })
         end
-    end
-    
-    return false -- No cooldown
-end
-
-function processExpiredPetitions()
-    local currentTime = os.time()
-    
-    for id, petition in pairs(Petitions) do
-        if petition.status == 'pending' then
-            local expiryTime = os.time(os.date("!*t", petition.expires_at))
-            
-            if currentTime > expiryTime then
-                -- Update status to rejected with auto-message
-                petition.status = 'rejected'
-                petition.admin_comment = 'Automatically rejected due to expiration.'
-                
-                -- Update database
-                MySQL.Async.execute('UPDATE petitions SET status = ?, admin_comment = ? WHERE id = ?',
-                {
-                    'rejected',
-                    'Automatically rejected due to expiration.',
-                    id
-                })
-            end
+        
+        -- Notify the petition creator
+        local targetPlayer = QBCore.Functions.GetPlayerByCitizenId(Petitions[petitionId].citizenId)
+        if targetPlayer then
+            TriggerClientEvent('QBCore:Notify', targetPlayer.PlayerData.source, "Your petition status has been updated to: " .. status, "primary", 5000)
         end
+        
+        cb(true, "Petition updated successfully")
+    else
+        cb(false, "Petition not found")
     end
-end
+end)
 
-function notifyAdmins(message)
-    local players = QBCore.Functions.GetPlayers()
-    
-    for _, playerId in ipairs(players) do
-        local Player = QBCore.Functions.GetPlayer(playerId)
-        if Player and hasAdminPermission(Player) then
-            TriggerClientEvent('ss-petition:client:showNotification', playerId, message)
-        end
+-- Register commands
+QBCore.Commands.Add(Config.PetitionCommand, 'Submit a petition or request to admins', {}, false, function(source)
+    TriggerClientEvent('qb-petition:client:openPetitionMenu', source)
+end)
+
+QBCore.Commands.Add(Config.AdminPetitionCommand, 'View and manage petitions (Admin Only)', {}, false, function(source)
+    if IsPlayerAdmin(source) then
+        TriggerClientEvent('qb-petition:client:openAdminPanel', source)
+    else
+        TriggerClientEvent('QBCore:Notify', source, "You don't have permission to use this command", "error")
     end
-end
+end)

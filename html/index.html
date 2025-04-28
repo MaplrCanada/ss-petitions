@@ -1,155 +1,166 @@
+<!-- html/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QBCore Petition System</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://kit.fontawesome.com/aaa7dd7a69.js" crossorigin="anonymous"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div id="petition-container">
-        <!-- Header -->
+    <!-- Player Petition Menu -->
+    <div id="petition-menu" class="container hidden">
         <div class="header">
-            <div class="logo">
-                <i class="fas fa-scroll"></i>
-                <h1>City Petitions</h1>
+            <h1>Petition System</h1>
+            <div class="close-btn" id="close-petition"><i class="fas fa-times"></i></div>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="new-petition">New Petition</div>
+            <div class="tab" data-tab="my-petitions">My Petitions</div>
+        </div>
+        
+        <div class="tab-content active" id="new-petition">
+            <form id="petition-form">
+                <div class="form-group">
+                    <label for="petition-title">Title</label>
+                    <input type="text" id="petition-title" maxlength="50" placeholder="Brief title for your petition">
+                    <div class="char-counter"><span id="title-counter">0</span>/<span id="title-max">50</span></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="petition-category">Category</label>
+                    <select id="petition-category">
+                        <!-- Categories will be added dynamically -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="petition-description">Description</label>
+                    <textarea id="petition-description" maxlength="500" placeholder="Please describe your issue in detail..."></textarea>
+                    <div class="char-counter"><span id="desc-counter">0</span>/<span id="desc-max">500</span></div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Submit Petition</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="tab-content" id="my-petitions">
+            <div class="petitions-list">
+                <!-- Player petitions will be listed here -->
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <p>No petitions found</p>
+                </div>
             </div>
-            <div class="nav-buttons">
-                <button id="pending-btn" class="active">Pending</button>
-                <button id="approved-btn">Approved</button>
-                <button id="my-petitions-btn">My Petitions</button>
-                <button id="create-btn">Create Petition</button>
-                <button id="admin-btn" class="admin-only">Admin Panel</button>
-                <button id="close-btn"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+    
+    <!-- Admin Panel -->
+    <div id="admin-panel" class="container hidden">
+        <div class="header">
+            <h1>Admin Petition Panel</h1>
+            <div class="close-btn" id="close-admin"><i class="fas fa-times"></i></div>
+        </div>
+        
+        <div class="admin-filters">
+            <div class="filter-group">
+                <label>Status:</label>
+                <div class="filter-options">
+                    <div class="filter active" data-filter="all">All</div>
+                    <div class="filter" data-filter="pending">Pending</div>
+                    <div class="filter" data-filter="inprogress">In Progress</div>
+                    <div class="filter" data-filter="resolved">Resolved</div>
+                    <div class="filter" data-filter="rejected">Rejected</div>
+                </div>
+            </div>
+            
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="petition-search" placeholder="Search petitions...">
             </div>
         </div>
         
-        <!-- Main Content -->
-        <div class="content">
-            <!-- Petitions List View -->
-            <div id="petitions-list" class="section active">
-                <div class="search-bar">
-                    <input type="text" id="search-input" placeholder="Search petitions...">
-                    <i class="fas fa-search"></i>
-                </div>
-                
-                <div class="petitions-container">
-                    <!-- Petitions will be populated dynamically -->
-                </div>
-                
-                <div class="no-petitions hidden">
-                    <i class="fas fa-file-alt"></i>
+        <div class="petitions-container">
+            <div class="petitions-list">
+                <!-- Admin petitions will be listed here -->
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
                     <p>No petitions found</p>
                 </div>
             </div>
             
-            <!-- Create Petition View -->
-            <div id="create-petition" class="section">
-                <h2>Create New Petition</h2>
-                
-                <div class="form-group">
-                    <label for="petition-title">Title</label>
-                    <input type="text" id="petition-title" placeholder="Enter a clear title for your petition" maxlength="100">
+            <div class="petition-details">
+                <div class="empty-state active">
+                    <i class="fas fa-file-alt"></i>
+                    <p>Select a petition to view details</p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="petition-content">Description</label>
-                    <textarea id="petition-content" placeholder="Describe your petition in detail..." maxlength="500"></textarea>
-                    <div class="char-counter"><span id="char-count">0</span>/<span id="max-chars">500</span></div>
-                </div>
-                
-                <div class="petition-guidelines">
-                    <h3>Guidelines</h3>
-                    <ul>
-                        <li>Be specific and clear about what you're requesting</li>
-                        <li>Avoid offensive language or personal attacks</li>
-                        <li>Only one active petition per citizen at a time</li>
-                        <li>Petitions require <span id="required-signatures">25</span> signatures for review</li>
-                    </ul>
-                </div>
-                
-                <div class="form-buttons">
-                    <button id="cancel-petition">Cancel</button>
-                    <button id="submit-petition">Submit Petition</button>
-                </div>
-            </div>
-            
-            <!-- View Petition Details -->
-            <div id="view-petition" class="section">
-                <div class="petition-header">
-                    <h2 id="detail-title"></h2>
-                    <div class="petition-status">
-                        <span id="detail-status" class="status"></span>
-                    </div>
-                </div>
-                
-                <div class="petition-meta">
-                    <p>Created by <span id="detail-author"></span> on <span id="detail-date"></span></p>
-                    <p><span id="detail-signatures"></span> signatures</p>
-                </div>
-                
-                <div class="petition-content">
-                    <p id="detail-content"></p>
-                </div>
-                
-                <div id="admin-comment" class="admin-comment hidden">
-                    <h3>Admin Response:</h3>
-                    <p id="detail-admin-comment"></p>
-                </div>
-                
-                <div id="signatures-section">
-                    <h3>Signatures</h3>
-                    <div id="signatures-list">
-                        <!-- Signatures will be populated dynamically -->
-                    </div>
-                </div>
-                
-                <div class="petition-actions">
-                    <button id="back-to-list">Back</button>
-                    <button id="sign-petition">Sign Petition</button>
-                </div>
-            </div>
-            
-            <!-- Admin Panel -->
-            <div id="admin-panel" class="section admin-only">
-                <h2>Admin Panel</h2>
-                
-                <div class="admin-tabs">
-                    <button id="pending-review-tab" class="active">Pending Review</button>
-                    <button id="all-petitions-tab">All Petitions</button>
-                </div>
-                
-                <div class="admin-petitions">
-                    <!-- Admin petitions will be populated dynamically -->
-                </div>
-                
-                <div class="admin-detail hidden">
-                    <h3 id="admin-detail-title"></h3>
-                    <p>By <span id="admin-detail-author"></span> | <span id="admin-detail-date"></span></p>
-                    <p id="admin-detail-content"></p>
+                <div class="petition-content hidden">
+                    <h2 id="detail-title">Petition Title</h2>
                     
-                    <div class="admin-signatures">
-                        <h4>Signatures: <span id="admin-detail-signatures"></span></h4>
-                    </div>
-                    
-                    <div class="admin-action">
-                        <h4>Admin Response</h4>
-                        <textarea id="admin-comment-input" placeholder="Provide a reason for your decision (optional)"></textarea>
-                        
-                        <div class="admin-buttons">
-                            <button id="admin-back">Back</button>
-                            <button id="admin-reject" class="red">Reject</button>
-                            <button id="admin-approve" class="green">Approve</button>
+                    <div class="detail-meta">
+                        <div class="meta-item">
+                            <i class="fas fa-user"></i>
+                            <span id="detail-submitter">Player Name</span>
                         </div>
+                        <div class="meta-item">
+                            <i class="fas fa-tag"></i>
+                            <span id="detail-category">Category</span>
+                        </div>
+                        <div class="meta-item">
+                            <i class="fas fa-clock"></i>
+                            <span id="detail-date">Date</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Description</h3>
+                        <p id="detail-description">Petition description goes here...</p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Status</h3>
+                        <div class="status-selector">
+                            <div class="status-option" data-status="pending">Pending</div>
+                            <div class="status-option" data-status="inprogress">In Progress</div>
+                            <div class="status-option" data-status="resolved">Resolved</div>
+                            <div class="status-option" data-status="rejected">Rejected</div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Admin Comment</h3>
+                        <textarea id="admin-comment" placeholder="Add a comment to this petition..."></textarea>
+                    </div>
+                    
+                    <div class="detail-section comments-section">
+                        <h3>Previous Comments</h3>
+                        <div id="comments-list">
+                            <!-- Comments will be listed here -->
+                            <div class="empty-comments">No comments yet</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button id="update-petition" class="btn primary">Update Petition</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <script src="nui://game/ui/jquery.js"></script>
+    <!-- Notification -->
+    <div id="notification" class="notification">
+        <div class="notification-content">
+            <i class="fas fa-info-circle"></i>
+            <span id="notification-text">This is a notification</span>
+        </div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
