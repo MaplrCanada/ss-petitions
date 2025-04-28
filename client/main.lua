@@ -1,6 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local isPetitionOpen = false
-local PlayerData = {}
+local PlayerData = QBCore.Functions.GetPlayerData() -- 
 
 -- Initialize player data
 AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
@@ -43,7 +43,16 @@ RegisterNetEvent('ss-petition:client:openMenu')
 AddEventHandler('ss-petition:client:openMenu', function()
     if isPetitionOpen then return end
     isPetitionOpen = true
-    
+
+    -- Fetch player data again just in case
+    PlayerData = QBCore.Functions.GetPlayerData()
+
+    if not PlayerData or not PlayerData.charinfo then
+        ShowNotification('Error: Player information not loaded. Try again.')
+        isPetitionOpen = false
+        return
+    end
+
     -- Get petition data before opening UI
     QBCore.Functions.TriggerCallback('ss-petition:server:getPetitionData', function(data) 
         -- Send data to NUI
@@ -66,6 +75,7 @@ AddEventHandler('ss-petition:client:openMenu', function()
         SetNuiFocus(true, true)
     end)
 end)
+
 
 -- Location-based interaction
 CreateThread(function()
