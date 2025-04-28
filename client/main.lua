@@ -111,13 +111,9 @@ function OpenPetitionMenu()
     end)
 end
 
-function IsPlayerAdmin()
-    local isAdmin = false
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(result)
-        isAdmin = result
-    end)
-    Wait(100) -- Small wait to ensure callback completes
-    return isAdmin
+function IsPlayerAdmin(source)
+    local Player = QBCore.Functions.GetPlayer(source)
+    return Player and Player.PlayerData.admin or false
 end
 
 -- NUI Callbacks

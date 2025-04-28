@@ -38,18 +38,16 @@ Citizen.CreateThread(function()
 end)
 
 -- Helper function to check if player is admin
-QBCore.Functions.CreateCallback('ss-petitions:server:CheckIsAdmin', function(source, cb)
+function IsPlayerAdmin(source)
     local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return cb(false) end
+    if not Player then return false end
     
-    for _, group in pairs(Config.AdminGroups) do
-        if QBCore.Functions.HasPermission(source, group) then
-            return cb(true)
-        end
+    if Player.PlayerData.admin then
+        return true  -- Player is admin
     end
     
-    return cb(false)
-end)
+    return false
+end
 
 -- Check for expired petitions every hour
 function CheckExpiredPetitions()
