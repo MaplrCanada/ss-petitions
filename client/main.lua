@@ -74,5 +74,11 @@ RegisterNetEvent('ss-petitions:client:openPetitionMenu', function()
 end)
 
 RegisterNetEvent('ss-petitions:client:openAdminPanel', function()
-    OpenAdminPanel()
+    QBCore.Functions.TriggerCallback('ss-petitions:server:isAdmin', function(isAdmin)
+        if isAdmin then
+            OpenAdminPanel()
+        else
+            QBCore.Functions.Notify("You do not have permission to open the admin panel.", "error")
+        end
+    end)
 end)
