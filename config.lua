@@ -2,44 +2,69 @@
 Config = {}
 
 -- General Settings
-Config.UseCommand = true -- If true, players can use /petition command. If false, they need to go to coordinates
-Config.PetitionBoardCoords = {
-    {x = -544.75, y = -204.10, z = 38.22}, -- Example: City Hall
-    {x = 447.35, y = -975.57, z = 30.69},  -- Example: Police Station
+Config.Debug = false -- Set to true for debug mode
+Config.NotificationSystem = 'qb' -- Options: 'qb', 'okok', 'custom'
+
+-- Command Settings
+Config.UseCommand = true -- If true, enables /petition command
+Config.CommandName = 'petition' -- Command to open petition UI
+
+-- Location Settings (used if Config.UseCommand = false)
+Config.Locations = {
+    {
+        coords = vector3(-548.35, -200.12, 38.22), -- City Hall example
+        radius = 2.0, -- Interaction radius
+        marker = {
+            enabled = true,
+            type = 2, -- Marker type
+            size = vec(0.5, 0.5, 0.5),
+            color = {r = 0, g = 122, b = 204, a = 100},
+        },
+        blip = {
+            enabled = true,
+            sprite = 408, -- Blip sprite
+            color = 3, -- Blip color
+            scale = 0.7, -- Blip size
+            label = "Petition Board" -- Blip label
+        }
+    },
     -- Add more locations as needed
 }
-Config.InteractionDistance = 3.0 -- Distance to interact with petition boards
-Config.BlipSettings = {
-    sprite = 181,
-    color = 3,
-    scale = 0.7,
-    name = "Petition Board"
+
+-- UI Settings
+Config.UI = {
+    theme = {
+        primary = "#3498db", -- Primary color
+        secondary = "#2ecc71", -- Secondary color
+        accent = "#9b59b6", -- Accent color
+        background = "#2c3e50", -- Background color
+        text = "#ecf0f1" -- Text color
+    },
+    logo = "nui/assets/img/logo.png", -- Path to logo
 }
 
 -- Petition Settings
-Config.MaxPetitionLength = 500       -- Maximum characters in a petition
-Config.MaxActivePetitions = 50       -- Maximum number of active petitions in the system
-Config.MaxPlayerPetitions = 3        -- Maximum active petitions per player
-Config.PetitionExpiryDays = 7        -- Number of days before petitions expire
-Config.RequiredSignatures = 15       -- Signatures required for a petition to be "successful"
-Config.AllowAnonymousPetitions = true -- Allow players to submit anonymous petitions
-Config.RequireApproval = true        -- Require admin approval before petition is public
-Config.CooldownMinutes = 30          -- Cooldown between petition submissions (minutes)
-
--- Admin Settings
-Config.AdminGroups = {"admin", "mod", "superadmin"} -- Groups that can manage petitions
-
--- Categories for petitions
-Config.Categories = {
-    "Server Suggestions",
-    "Bug Reports",
-    "Event Ideas",
-    "Rule Changes",
-    "Other"
+Config.PetitionSettings = {
+    maxPetitionLength = 500, -- Maximum characters in petition text
+    expiryDays = 14, -- Days until a petition expires if not handled
+    requiredSignatures = 25, -- Signatures needed for admin review
+    cooldownMinutes = 60, -- Minutes before player can create another petition
 }
 
--- Notification System
-Config.NotificationSystem = "qbcore" -- Options: "qbcore", "okok", "custom"
+-- Admin Settings
+Config.AdminSettings = {
+    requiredPermission = 'admin', -- Permission needed to access admin panel
+    notifyNewPetition = true, -- Notify admins when new petitions are created
+    autoDeclineExpired = true, -- Auto-decline expired petitions
+}
 
--- Framework Settings
-Config.CoreObject = "QBCore" -- The name of your core object
+-- Notification texts
+Config.Notifications = {
+    petitionCreated = "Your petition has been submitted.",
+    petitionSigned = "You have signed the petition.",
+    alreadySigned = "You have already signed this petition.",
+    petitionApproved = "Your petition has been approved by an admin.",
+    petitionRejected = "Your petition has been rejected by an admin.",
+    cooldownActive = "You must wait before creating another petition.",
+    adminReviewNeeded = "A petition has reached the required signatures for review.",
+}

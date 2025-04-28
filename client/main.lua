@@ -1,191 +1,181 @@
---client/main.lua
 local QBCore = exports['qb-core']:GetCoreObject()
+local isPetitionOpen = false
 local PlayerData = {}
-local PetitionBlips = {}
-local isNearPetitionBoard = false
-local isBusy = false
 
--- Initialize
-Citizen.CreateThread(function()
-    Wait(1000)
-    PlayerData = QBCore.Functions.GetPlayerData()
-    if not Config.UseCommand then
-        CreatePetitionBlips()
-    end
-end)
-
--- Update player data when it changes
-RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+-- Initialize player data
+AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
     PlayerData = QBCore.Functions.GetPlayerData()
 end)
 
-RegisterNetEvent('QBCore:Client:OnJobUpdate', function(JobInfo)
+RegisterNetEvent('QBCore:Client:OnPlayerUnload')
+AddEventHandler('QBCore:Client:OnPlayerUnload', function()
+    PlayerData = {}
+end)
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate')
+AddEventHandler('QBCore:Client:OnJobUpdate', function(JobInfo)
     PlayerData.job = JobInfo
 end)
 
--- Create blips for petition boards
-function CreatePetitionBlips()
-    for _, coords in pairs(Config.PetitionBoardCoords) do
-        local blip = AddBlipForCoord(coords.x, coords.y, coords.z)
-        SetBlipSprite(blip, Config.BlipSettings.sprite)
-        SetBlipDisplay(blip, 4)
-        SetBlipScale(blip, Config.BlipSettings.scale)
-        SetBlipColour(blip, Config.BlipSettings.color)
-        SetBlipAsShortRange(blip, true)
-        BeginTextCommandSetBlipName("STRING")
-        AddTextComponentString(Config.BlipSettings.name)
-        EndTextCommandSetBlipName(blip)
-        table.insert(PetitionBlips, blip)
+-- Notification handler
+function ShowNotification(message)
+    if Config.NotificationSystem == 'qb' then
+        QBCore.Functions.Notify(message, "primary")
+    elseif Config.NotificationSystem == 'okok' then
+        exports['okokNotify']:Alert("Petition System", message, 5000, 'info')
+    else
+        -- Default notification
+        SetNotificationTextEntry('STRING')
+        AddTextComponentString(message)
+        DrawNotification(0, 1)
     end
 end
 
--- Remove blips when resource stops
-AddEventHandler('onResourceStop', function(resourceName)
-    if (GetCurrentResourceName() ~= resourceName) then return end
-    for _, blip in pairs(PetitionBlips) do
-        RemoveBlip(blip)
-    end
-end)
-
--- Check if player is near a petition board
-Citizen.CreateThread(function()
-    while true do
-        if not Config.UseCommand then
-            local playerPed = PlayerPedId()
-            local coords = GetEntityCoords(playerPed)
-            isNearPetitionBoard = false
-            
-            for _, boardCoords in pairs(Config.PetitionBoardCoords) do
-                local distance = #(coords - vector3(boardCoords.x, boardCoords.y, boardCoords.z))
-                if distance < Config.InteractionDistance then
-                    isNearPetitionBoard = true
-                    break
-                end
-            end
-            
-            if isNearPetitionBoard and not isBusy then
-                DrawMarker(2, coords.x, coords.y, coords.z + 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.3, 0.3, 255, 255, 255, 100, false, true, 2, false, nil, nil, false)
-                QBCore.Functions.DrawText3D(coords.x, coords.y, coords.z + 0.2, "[E] Open Petition Board")
-                
-                if IsControlJustReleased(0, 38) then -- E key
-                    OpenPetitionMenu()
-                end
-            end
-        end
-        
-        Wait(isNearPetitionBoard and 0 or 1000)
-    end
-end)
-
--- Command to open petition menu
+-- Create command if enabled
 if Config.UseCommand then
-    RegisterCommand('petition', function()
-        OpenPetitionMenu()
-    end, false)
-end
-
--- Open the petition menu
-function OpenPetitionMenu()
-    if isBusy then return end
-    
-    isBusy = true
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
-        QBCore.Functions.TriggerCallback('ss-petitions:server:GetPetitions', function(petitions)
-            SetNuiFocus(true, true)
-            SendNUIMessage({
-                action = "openMenu",
-                petitions = petitions,
-                playerData = {
-                    citizenid = PlayerData.citizenid,
-                    name = PlayerData.charinfo.firstname .. ' ' .. PlayerData.charinfo.lastname,
-                    isAdmin = isAdmin
-                },
-                config = {
-                    categories = Config.Categories,
-                    maxLength = Config.MaxPetitionLength,
-                    maxPlayerPetitions = Config.MaxPlayerPetitions,
-                    allowAnonymous = Config.AllowAnonymousPetitions,
-                    requireApproval = Config.RequireApproval
-                }
-            })
-            isBusy = false
-        end)
+    RegisterCommand(Config.CommandName, function()
+        TriggerEvent('qb-petition:client:openMenu')
     end)
 end
 
--- NUI Callbacks
-RegisterNUICallback('close', function(data, cb)
+-- Open petition menu
+RegisterNetEvent('qb-petition:client:openMenu')
+AddEventHandler('qb-petition:client:openMenu', function()
+    if isPetitionOpen then return end
+    isPetitionOpen = true
+    
+    -- Get petition data before opening UI
+    QBCore.Functions.TriggerCallback('qb-petition:server:getPetitionData', function(data) 
+        -- Send data to NUI
+        SendNUIMessage({
+            action = "openPetition",
+            petitions = data.petitions,
+            isAdmin = data.isAdmin,
+            playerInfo = {
+                citizenid = PlayerData.citizenid,
+                name = PlayerData.charinfo.firstname .. ' ' .. PlayerData.charinfo.lastname
+            },
+            config = {
+                theme = Config.UI.theme,
+                maxLength = Config.PetitionSettings.maxPetitionLength,
+                requiredSignatures = Config.PetitionSettings.requiredSignatures
+            }
+        })
+        
+        -- Show cursor and set NUI focus
+        SetNuiFocus(true, true)
+    end)
+end)
+
+-- Location-based interaction
+CreateThread(function()
+    if not Config.UseCommand then
+        while true do
+            Wait(0)
+            local playerPed = PlayerPedId()
+            local playerCoords = GetEntityCoords(playerPed)
+            local isInRange = false
+            
+            for _, location in pairs(Config.Locations) do
+                local distance = #(playerCoords - location.coords)
+                
+                if distance < location.radius then
+                    isInRange = true
+                    
+                    -- Show interaction help text
+                    DrawText3D(location.coords.x, location.coords.y, location.coords.z, "[E] Open Petition Board")
+                    
+                    if IsControlJustReleased(0, 38) then -- E key
+                        TriggerEvent('qb-petition:client:openMenu')
+                    end
+                end
+                
+                -- Draw marker if enabled
+                if location.marker.enabled and distance < 10.0 then
+                    DrawMarker(
+                        location.marker.type, 
+                        location.coords.x, location.coords.y, location.coords.z - 0.95, 
+                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+                        location.marker.size.x, location.marker.size.y, location.marker.size.z, 
+                        location.marker.color.r, location.marker.color.g, location.marker.color.b, location.marker.color.a, 
+                        false, true, 2, nil, nil, false
+                    )
+                end
+            end
+            
+            if not isInRange then
+                Wait(500)
+            end
+        end
+    end
+end)
+
+-- Create blips if enabled
+CreateThread(function()
+    if not Config.UseCommand then
+        for _, location in pairs(Config.Locations) do
+            if location.blip.enabled then
+                local blip = AddBlipForCoord(location.coords.x, location.coords.y, location.coords.z)
+                SetBlipSprite(blip, location.blip.sprite)
+                SetBlipDisplay(blip, 4)
+                SetBlipScale(blip, location.blip.scale)
+                SetBlipColour(blip, location.blip.color)
+                SetBlipAsShortRange(blip, true)
+                BeginTextCommandSetBlipName("STRING")
+                AddTextComponentString(location.blip.label)
+                EndTextCommandSetBlipName(blip)
+            end
+        end
+    end
+end)
+
+-- NUI callbacks
+RegisterNUICallback('closePetition', function(_, cb)
     SetNuiFocus(false, false)
+    isPetitionOpen = false
     cb('ok')
 end)
 
 RegisterNUICallback('createPetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CreatePetition', function(success, message)
-        cb({success = success, message = message})
-    end, data)
+    TriggerServerEvent('qb-petition:server:createPetition', data)
+    cb('ok')
 end)
 
 RegisterNUICallback('signPetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:SignPetition', function(success, message)
-        cb({success = success, message = message})
-    end, data.id)
+    TriggerServerEvent('qb-petition:server:signPetition', data)
+    cb('ok')
 end)
 
-RegisterNUICallback('deletePetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:DeletePetition', function(success, message)
-        cb({success = success, message = message})
-    end, data.id)
+RegisterNUICallback('adminAction', function(data, cb)
+    TriggerServerEvent('qb-petition:server:adminAction', data)
+    cb('ok')
 end)
 
-RegisterNUICallback('approvePetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
-        if not isAdmin then
-            cb({success = false, message = "You don't have permission to do this"})
-            return
-        end
-        
-        QBCore.Functions.TriggerCallback('ss-petitions:server:ApprovePetition', function(success, message)
-            cb({success = success, message = message})
-        end, data.id)
+RegisterNUICallback('refreshPetitions', function(_, cb)
+    QBCore.Functions.TriggerCallback('qb-petition:server:getPetitionData', function(data) 
+        cb(data)
     end)
 end)
 
-RegisterNUICallback('rejectPetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
-        if not isAdmin then
-            cb({success = false, message = "You don't have permission to do this"})
-            return
-        end
-        
-        QBCore.Functions.TriggerCallback('ss-petitions:server:RejectPetition', function(success, message)
-            cb({success = success, message = message})
-        end, data.id)
-    end)
-end)
+-- Helper function for 3D text
+function DrawText3D(x, y, z, text)
+    local onScreen, _x, _y = World3dToScreen2d(x, y, z)
+    local px, py, pz = table.unpack(GetGameplayCamCoords())
+    
+    SetTextScale(0.35, 0.35)
+    SetTextFont(4)
+    SetTextProportional(1)
+    SetTextColour(255, 255, 255, 215)
+    SetTextEntry("STRING")
+    SetTextCentre(1)
+    AddTextComponentString(text)
+    DrawText(_x, _y)
+    local factor = (string.len(text)) / 370
+    DrawRect(_x, _y + 0.0125, 0.015 + factor, 0.03, 41, 11, 41, 68)
+end
 
-RegisterNUICallback('getPetitionDetails', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:GetPetitionDetails', function(petition)
-        cb(petition)
-    end, data.id)
-end)
-
-RegisterNUICallback('getPlayerPetitions', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petitions:server:GetPlayerPetitions', function(petitions)
-        cb(petitions)
-    end)
-end)
-
--- Display notifications from server
-RegisterNetEvent('ss-petitions:client:Notify')
-AddEventHandler('ss-petitions:client:Notify', function(message, type)
-    if Config.NotificationSystem == "qbcore" then
-        QBCore.Functions.Notify(message, type)
-    elseif Config.NotificationSystem == "okok" then
-        exports['okokNotify']:Alert("Petitions", message, 5000, type)
-    else
-        -- Custom notification or default
-        SetNotificationTextEntry('STRING')
-        AddTextComponentString(message)
-        DrawNotification(false, false)
-    end
+-- Notification events
+RegisterNetEvent('qb-petition:client:showNotification')
+AddEventHandler('qb-petition:client:showNotification', function(message)
+    ShowNotification(message)
 end)
