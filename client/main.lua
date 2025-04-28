@@ -113,18 +113,6 @@ function OpenPetitionMenu()
     end)
 end
 
-function IsPlayerAdmin()
-    local isAdmin = false
-    local p = promise.new()
-    
-    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(result)
-        isAdmin = result
-        p:resolve(isAdmin)
-    end)
-    
-    return Citizen.Await(p)
-end
-
 -- NUI Callbacks
 RegisterNUICallback('close', function(data, cb)
     SetNuiFocus(false, false)

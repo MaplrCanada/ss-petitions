@@ -1,6 +1,19 @@
 -- server/main.lua
 local QBCore = exports['qb-core']:GetCoreObject()
 
+-- Helper function to check if player is admin
+function IsPlayerAdmin(source)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return false end
+    
+    -- Check if player is admin
+    if Player.PlayerData.admin then
+        return true
+    end
+    
+    return false
+end
+
 -- Initialize Database
 Citizen.CreateThread(function()
     Wait(500)
@@ -39,16 +52,7 @@ end)
 
 -- Helper function to check if player is admin
 QBCore.Functions.CreateCallback('ss-petitions:server:CheckIsAdmin', function(source, cb)
-    local Player = QBCore.Functions.GetPlayer(source)
-    if not Player then return cb(false) end
-    
-    for _, group in pairs(Config.AdminGroups) do
-        if QBCore.Functions.HasPermission(source, group) then
-            return cb(true)
-        end
-    end
-    
-    return cb(false)
+    cb(IsPlayerAdmin(source))
 end)
 
 -- Check for expired petitions every hour
