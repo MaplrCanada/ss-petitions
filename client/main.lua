@@ -89,31 +89,40 @@ function OpenPetitionMenu()
     if isBusy then return end
     
     isBusy = true
-    QBCore.Functions.TriggerCallback('ss-petitions:server:GetPetitions', function(petitions)
-        SetNuiFocus(true, true)
-        SendNUIMessage({
-            action = "openMenu",
-            petitions = petitions,
-            playerData = {
-                citizenid = PlayerData.citizenid,
-                name = PlayerData.charinfo.firstname .. ' ' .. PlayerData.charinfo.lastname,
-                isAdmin = IsPlayerAdmin()
-            },
-            config = {
-                categories = Config.Categories,
-                maxLength = Config.MaxPetitionLength,
-                maxPlayerPetitions = Config.MaxPlayerPetitions,
-                allowAnonymous = Config.AllowAnonymousPetitions,
-                requireApproval = Config.RequireApproval
-            }
-        })
-        isBusy = false
+    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
+        QBCore.Functions.TriggerCallback('ss-petitions:server:GetPetitions', function(petitions)
+            SetNuiFocus(true, true)
+            SendNUIMessage({
+                action = "openMenu",
+                petitions = petitions,
+                playerData = {
+                    citizenid = PlayerData.citizenid,
+                    name = PlayerData.charinfo.firstname .. ' ' .. PlayerData.charinfo.lastname,
+                    isAdmin = isAdmin
+                },
+                config = {
+                    categories = Config.Categories,
+                    maxLength = Config.MaxPetitionLength,
+                    maxPlayerPetitions = Config.MaxPlayerPetitions,
+                    allowAnonymous = Config.AllowAnonymousPetitions,
+                    requireApproval = Config.RequireApproval
+                }
+            })
+            isBusy = false
+        end)
     end)
 end
 
-function IsPlayerAdmin(source)
-    local Player = QBCore.Functions.GetPlayer(source)
-    return Player and Player.PlayerData.admin or false
+function IsPlayerAdmin()
+    local isAdmin = false
+    local p = promise.new()
+    
+    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(result)
+        isAdmin = result
+        p:resolve(isAdmin)
+    end)
+    
+    return Citizen.Await(p)
 end
 
 -- NUI Callbacks
@@ -141,25 +150,29 @@ RegisterNUICallback('deletePetition', function(data, cb)
 end)
 
 RegisterNUICallback('approvePetition', function(data, cb)
-    if not IsPlayerAdmin() then
-        cb({success = false, message = "You don't have permission to do this"})
-        return
-    end
-    
-    QBCore.Functions.TriggerCallback('ss-petitions:server:ApprovePetition', function(success, message)
-        cb({success = success, message = message})
-    end, data.id)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
+        if not isAdmin then
+            cb({success = false, message = "You don't have permission to do this"})
+            return
+        end
+        
+        QBCore.Functions.TriggerCallback('ss-petitions:server:ApprovePetition', function(success, message)
+            cb({success = success, message = message})
+        end, data.id)
+    end)
 end)
 
 RegisterNUICallback('rejectPetition', function(data, cb)
-    if not IsPlayerAdmin() then
-        cb({success = false, message = "You don't have permission to do this"})
-        return
-    end
-    
-    QBCore.Functions.TriggerCallback('ss-petitions:server:RejectPetition', function(success, message)
-        cb({success = success, message = message})
-    end, data.id)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:CheckIsAdmin', function(isAdmin)
+        if not isAdmin then
+            cb({success = false, message = "You don't have permission to do this"})
+            return
+        end
+        
+        QBCore.Functions.TriggerCallback('ss-petitions:server:RejectPetition', function(success, message)
+            cb({success = success, message = message})
+        end, data.id)
+    end)
 end)
 
 RegisterNUICallback('getPetitionDetails', function(data, cb)
