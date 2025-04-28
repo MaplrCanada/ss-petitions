@@ -31,7 +31,7 @@ local function IsPlayerAdmin(source)
 end
 
 -- Create a new petition
-QBCore.Functions.CreateCallback('ss-petition:server:createPetition', function(source, cb, data)
+QBCore.Functions.CreateCallback('ss-petitions:server:createPetition', function(source, cb, data)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return cb(false) end
     
@@ -73,7 +73,7 @@ QBCore.Functions.CreateCallback('ss-petition:server:createPetition', function(so
 end)
 
 -- Get player's petitions
-QBCore.Functions.CreateCallback('ss-petition:server:getMyPetitions', function(source, cb)
+QBCore.Functions.CreateCallback('ss-petitions:server:getMyPetitions', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return cb({}) end
     
@@ -90,7 +90,7 @@ QBCore.Functions.CreateCallback('ss-petition:server:getMyPetitions', function(so
 end)
 
 -- Get all petitions (admin only)
-QBCore.Functions.CreateCallback('ss-petition:server:getAllPetitions', function(source, cb)
+QBCore.Functions.CreateCallback('ss-petitions:server:getAllPetitions', function(source, cb)
     if not IsPlayerAdmin(source) then 
         cb({})
         return
@@ -110,7 +110,7 @@ QBCore.Functions.CreateCallback('ss-petition:server:getAllPetitions', function(s
 end)
 
 -- Update petition status (admin only)
-QBCore.Functions.CreateCallback('ss-petition:server:updatePetition', function(source, cb, petitionId, status, comment)
+QBCore.Functions.CreateCallback('ss-petitions:server:updatePetition', function(source, cb, petitionId, status, comment)
     if not IsPlayerAdmin(source) then
         cb(false)
         return
@@ -145,12 +145,12 @@ end)
 
 -- Register commands
 QBCore.Commands.Add(Config.PetitionCommand, 'Submit a petition or request to admins', {}, false, function(source)
-    TriggerClientEvent('ss-petition:client:openPetitionMenu', source)
+    TriggerClientEvent('ss-petitions:client:openPetitionMenu', source)
 end)
 
 QBCore.Commands.Add(Config.AdminPetitionCommand, 'View and manage petitions (Admin Only)', {}, false, function(source)
     if IsPlayerAdmin(source) then
-        TriggerClientEvent('ss-petition:client:openAdminPanel', source)
+        TriggerClientEvent('ss-petitions:client:openAdminPanel', source)
     else
         TriggerClientEvent('QBCore:Notify', source, "You don't have permission to use this command", "error")
     end

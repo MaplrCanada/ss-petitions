@@ -8,7 +8,7 @@ function OpenPetitionMenu()
     isMenuOpen = true
     
     -- Get player's existing petitions
-    QBCore.Functions.TriggerCallback('ss-petition:server:getMyPetitions', function(myPetitions)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:getMyPetitions', function(myPetitions)
         -- Open NUI
         SetNuiFocus(true, true)
         SendNUIMessage({
@@ -27,7 +27,7 @@ function OpenAdminPanel()
     isMenuOpen = true
     
     -- Get all petitions
-    QBCore.Functions.TriggerCallback('ss-petition:server:getAllPetitions', function(allPetitions)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:getAllPetitions', function(allPetitions)
         -- Open NUI
         SetNuiFocus(true, true)
         SendNUIMessage({
@@ -45,34 +45,34 @@ RegisterNUICallback('closePetitionUI', function(_, cb)
 end)
 
 RegisterNUICallback('submitPetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petition:server:createPetition', function(success, message)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:createPetition', function(success, message)
         cb({success = success, message = message})
     end, data)
 end)
 
 RegisterNUICallback('updatePetition', function(data, cb)
-    QBCore.Functions.TriggerCallback('ss-petition:server:updatePetition', function(success, message)
+    QBCore.Functions.TriggerCallback('ss-petitions:server:updatePetition', function(success, message)
         cb({success = success, message = message})
     end, data.petitionId, data.status, data.comment)
 end)
 
 RegisterNUICallback('refreshPetitions', function(data, cb)
     if data.isAdmin then
-        QBCore.Functions.TriggerCallback('ss-petition:server:getAllPetitions', function(allPetitions)
+        QBCore.Functions.TriggerCallback('ss-petitions:server:getAllPetitions', function(allPetitions)
             cb({petitions = allPetitions})
         end)
     else
-        QBCore.Functions.TriggerCallback('ss-petition:server:getMyPetitions', function(myPetitions)
+        QBCore.Functions.TriggerCallback('ss-petitions:server:getMyPetitions', function(myPetitions)
             cb({petitions = myPetitions})
         end)
     end
 end)
 
 -- Commands
-RegisterNetEvent('ss-petition:client:openPetitionMenu', function()
+RegisterNetEvent('ss-petitions:client:openPetitionMenu', function()
     OpenPetitionMenu()
 end)
 
-RegisterNetEvent('ss-petition:client:openAdminPanel', function()
+RegisterNetEvent('ss-petitions:client:openAdminPanel', function()
     OpenAdminPanel()
 end)

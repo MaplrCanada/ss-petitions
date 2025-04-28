@@ -280,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close buttons
     document.getElementById('close-petition').addEventListener('click', () => {
         document.getElementById('petition-menu').classList.add('hidden');
-        fetch('https://ss-petition/closePetitionUI', {
+        fetch('https://ss-petitions/closePetitionUI', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -291,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('close-admin').addEventListener('click', () => {
         document.getElementById('admin-panel').classList.add('hidden');
-        fetch('https://ss-petition/closePetitionUI', {
+        fetch('https://ss-petitions/closePetitionUI', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -319,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Submit petition
-        fetch('https://ss-petition/submitPetition', {
+        fetch('https://ss-petitions/submitPetition', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 descCounter.textContent = '0';
                 
                 // Refresh the petitions list
-                fetch('https://ss-petition/refreshPetitions', {
+                fetch('https://ss-petitions/refreshPetitions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeStatus = document.querySelector('.status-option.active').dataset.status;
         const comment = document.getElementById('admin-comment').value.trim();
         
-        fetch('https://ss-petition/updatePetition', {
+        fetch('https://ss-petitions/updatePetition', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification(data.message, 'success');
                 
                 // Refresh the petitions list
-                fetch('https://ss-petition/refreshPetitions', {
+                fetch('https://ss-petitions/refreshPetitions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -436,7 +436,7 @@ document.addEventListener('keydown', function(event) {
         document.getElementById('petition-menu').classList.add('hidden');
         document.getElementById('admin-panel').classList.add('hidden');
         
-        fetch('https://ss-petition/closePetitionUI', {
+        fetch('https://ss-petitions/closePetitionUI', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
