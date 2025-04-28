@@ -7,18 +7,16 @@ local function CreatePetitionId()
     return tostring(os.time() .. math.random(1000, 9999))
 end
 
--- Check if player is admin
 local function IsPlayerAdmin(source)
     local Player = QBCore.Functions.GetPlayer(source)
     if Player then
-        local PlayerGroup = QBCore.Functions.GetPermission(source)
+        local PlayerGroup = Player.PlayerData.group -- <--- correct way to get group now
         local AdminGroups = {
             ['mod'] = true,
             ['admin'] = true,
             ['god'] = true
         }
         
-        -- Check if the minimum required admin level is met
         if Config.MinAdminLevel == 'mod' then
             return AdminGroups[PlayerGroup] ~= nil
         elseif Config.MinAdminLevel == 'admin' then
@@ -29,6 +27,7 @@ local function IsPlayerAdmin(source)
     end
     return false
 end
+
 
 -- Create a new petition
 QBCore.Functions.CreateCallback('ss-petitions:server:createPetition', function(source, cb, data)
