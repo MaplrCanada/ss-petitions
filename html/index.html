@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QBCore Petitions</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="petition-container">
+        <div class="header">
+            <h1>Petition System</h1>
+            <div class="close-btn" id="close-btn"><i class="fas fa-times"></i></div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="active">Active Petitions</div>
+            <div class="tab" data-tab="my">My Petitions</div>
+            <div class="tab" data-tab="create">Create Petition</div>
+            <div class="tab" id="admin-tab" data-tab="admin" style="display: none;">Admin Panel</div>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Active Petitions Tab -->
+            <div class="tab-pane active" id="active-petitions">
+                <div class="filters">
+                    <select id="category-filter">
+                        <option value="all">All Categories</option>
+                        <!-- Categories will be added dynamically -->
+                    </select>
+                    <select id="sort-filter">
+                        <option value="newest">Newest First</option>
+                        <option value="signatures">Most Signatures</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Search petitions...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+                
+                <div class="petitions-list" id="active-petitions-list">
+                    <!-- Petitions will be added dynamically -->
+                    <div class="no-petitions">No petitions found</div>
+                </div>
+            </div>
+            
+            <!-- My Petitions Tab -->
+            <div class="tab-pane" id="my-petitions">
+                <div class="petitions-list" id="my-petitions-list">
+                    <!-- User's petitions will be added dynamically -->
+                    <div class="no-petitions">You haven't created any petitions yet</div>
+                </div>
+            </div>
+            
+            <!-- Create Petition Tab -->
+            <div class="tab-pane" id="create-petition">
+                <form id="petition-form">
+                    <div class="form-group">
+                        <label for="petition-title">Title</label>
+                        <input type="text" id="petition-title" placeholder="Enter a clear title (5-100 characters)" maxlength="100" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="petition-category">Category</label>
+                        <select id="petition-category" required>
+                            <!-- Categories will be added dynamically -->
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="petition-content">Content</label>
+                        <textarea id="petition-content" placeholder="Describe your petition in detail..." required></textarea>
+                        <div class="char-counter"><span id="char-count">0</span>/<span id="max-chars">500</span></div>
+                    </div>
+                    
+                    <div class="form-group checkbox-group" id="anonymous-container" style="display: none;">
+                        <input type="checkbox" id="petition-anonymous">
+                        <label for="petition-anonymous">Submit anonymously</label>
+                    </div>
+                    
+                    <button type="submit" class="btn primary-btn">Submit Petition</button>
+                </form>
+            </div>
+            
+            <!-- Admin Panel Tab -->
+            <div class="tab-pane" id="admin-panel">
+                <div class="admin-filters">
+                    <select id="admin-status-filter">
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending Approval</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="completed">Completed</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+                
+                <div class="petitions-list" id="admin-petitions-list">
+                    <!-- Petitions will be added dynamically -->
+                    <div class="no-petitions">No petitions found</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Petition Details Modal -->
+        <div id="petition-details-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modal-petition-title">Petition Title</h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="petition-meta">
+                        <span class="petition-category" id="modal-petition-category">Category</span>
+                        <span class="petition-date" id="modal-petition-date">Created on: </span>
+                        <span class="petition-author" id="modal-petition-author">By: </span>
+                        <span class="petition-status" id="modal-petition-status">Status: </span>
+                        <span class="petition-signatures" id="modal-petition-signatures">0 signatures</span>
+                    </div>
+                    
+                    <div class="petition-content" id="modal-petition-content">
+                        <!-- Petition content will be added dynamically -->
+                    </div>
+                    
+                    <div class="petition-signatures-list" id="modal-signatures-list">
+                        <h3>Signatures</h3>
+                        <ul id="signatures-list">
+                            <!-- Signatures will be added dynamically -->
+                            <li class="no-signatures">No signatures yet</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button class="btn primary-btn" id="sign-petition-btn">Sign Petition</button>
+                        <button class="btn delete-btn" id="delete-petition-btn">Delete Petition</button>
+                        <div class="admin-actions" id="admin-actions" style="display: none;">
+                            <button class="btn approve-btn" id="approve-petition-btn">Approve</button>
+                            <button class="btn reject-btn" id="reject-petition-btn">Reject</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notification System -->
+        <div id="notification" class="notification">
+            <span id="notification-message"></span>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
+            
