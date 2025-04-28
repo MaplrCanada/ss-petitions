@@ -1,3 +1,4 @@
+--client/main.lua
 local QBCore = exports['qb-core']:GetCoreObject()
 local PlayerData = {}
 local PetitionBlips = {}
@@ -111,11 +112,12 @@ function OpenPetitionMenu()
 end
 
 -- Check if player is admin
-function IsPlayerAdmin()
-    if not PlayerData.job then return false end
+local function IsPlayerAdmin(source)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if not Player then return false end
     
     for _, group in pairs(Config.AdminGroups) do
-        if PlayerData.group == group then
+        if QBCore.Functions.HasPermission(source, group) then
             return true
         end
     end

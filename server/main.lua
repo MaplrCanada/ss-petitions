@@ -1,3 +1,4 @@
+-- server/main.lua
 local QBCore = exports['qb-core']:GetCoreObject()
 
 -- Initialize Database

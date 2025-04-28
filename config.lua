@@ -1,3 +1,4 @@
+-- config.lua
 Config = {}
 
 -- General Settings
