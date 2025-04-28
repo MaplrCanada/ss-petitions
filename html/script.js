@@ -26,6 +26,7 @@ window.addEventListener('message', function(event) {
 function initializeUI() {
     // Show/hide admin tab based on permissions
     const adminTab = document.getElementById('admin-tab');
+    console.log('Player is admin:', playerData.isAdmin); // Add this for debugging
     if (playerData.isAdmin) {
         adminTab.style.display = 'block';
     } else {

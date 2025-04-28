@@ -6,9 +6,14 @@ function IsPlayerAdmin(source)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return false end
     
-    -- Check if player is admin
-    if Player.PlayerData.admin then
-        return true
+    -- Check if player is in an admin group
+    local playerGroup = QBCore.Functions.GetPermission(source)
+    if playerGroup then
+        for _, adminGroup in pairs(Config.AdminGroups) do
+            if playerGroup == adminGroup then
+                return true
+            end
+        end
     end
     
     return false
@@ -52,7 +57,9 @@ end)
 
 -- Helper function to check if player is admin
 QBCore.Functions.CreateCallback('ss-petitions:server:CheckIsAdmin', function(source, cb)
-    cb(IsPlayerAdmin(source))
+    local isAdmin = IsPlayerAdmin(source)
+    print("Player " .. source .. " admin check: " .. tostring(isAdmin))
+    cb(isAdmin)
 end)
 
 -- Check for expired petitions every hour
