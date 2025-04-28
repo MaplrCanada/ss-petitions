@@ -34,18 +34,18 @@ end
 -- Create command if enabled
 if Config.UseCommand then
     RegisterCommand(Config.CommandName, function()
-        TriggerEvent('qb-petition:client:openMenu')
+        TriggerEvent('ss-petition:client:openMenu')
     end)
 end
 
 -- Open petition menu
-RegisterNetEvent('qb-petition:client:openMenu')
-AddEventHandler('qb-petition:client:openMenu', function()
+RegisterNetEvent('ss-petition:client:openMenu')
+AddEventHandler('ss-petition:client:openMenu', function()
     if isPetitionOpen then return end
     isPetitionOpen = true
     
     -- Get petition data before opening UI
-    QBCore.Functions.TriggerCallback('qb-petition:server:getPetitionData', function(data) 
+    QBCore.Functions.TriggerCallback('ss-petition:server:getPetitionData', function(data) 
         -- Send data to NUI
         SendNUIMessage({
             action = "openPetition",
@@ -86,7 +86,7 @@ CreateThread(function()
                     DrawText3D(location.coords.x, location.coords.y, location.coords.z, "[E] Open Petition Board")
                     
                     if IsControlJustReleased(0, 38) then -- E key
-                        TriggerEvent('qb-petition:client:openMenu')
+                        TriggerEvent('ss-petition:client:openMenu')
                     end
                 end
                 
@@ -137,22 +137,22 @@ RegisterNUICallback('closePetition', function(_, cb)
 end)
 
 RegisterNUICallback('createPetition', function(data, cb)
-    TriggerServerEvent('qb-petition:server:createPetition', data)
+    TriggerServerEvent('ss-petition:server:createPetition', data)
     cb('ok')
 end)
 
 RegisterNUICallback('signPetition', function(data, cb)
-    TriggerServerEvent('qb-petition:server:signPetition', data)
+    TriggerServerEvent('ss-petition:server:signPetition', data)
     cb('ok')
 end)
 
 RegisterNUICallback('adminAction', function(data, cb)
-    TriggerServerEvent('qb-petition:server:adminAction', data)
+    TriggerServerEvent('ss-petition:server:adminAction', data)
     cb('ok')
 end)
 
 RegisterNUICallback('refreshPetitions', function(_, cb)
-    QBCore.Functions.TriggerCallback('qb-petition:server:getPetitionData', function(data) 
+    QBCore.Functions.TriggerCallback('ss-petition:server:getPetitionData', function(data) 
         cb(data)
     end)
 end)
@@ -175,7 +175,7 @@ function DrawText3D(x, y, z, text)
 end
 
 -- Notification events
-RegisterNetEvent('qb-petition:client:showNotification')
-AddEventHandler('qb-petition:client:showNotification', function(message)
+RegisterNetEvent('ss-petition:client:showNotification')
+AddEventHandler('ss-petition:client:showNotification', function(message)
     ShowNotification(message)
 end)

@@ -340,7 +340,7 @@ function submitPetition() {
     }
     
     // Send to client
-    $.post('https://qb-petition/createPetition', JSON.stringify({
+    $.post('https://ss-petition/createPetition', JSON.stringify({
         title: title,
         content: content
     }));
@@ -364,7 +364,7 @@ function clearCreateForm() {
 function signPetition() {
     if (!currentPetition) return;
     
-    $.post('https://qb-petition/signPetition', JSON.stringify({
+    $.post('https://ss-petition/signPetition', JSON.stringify({
         petitionId: currentPetition.id
     }));
     
@@ -456,7 +456,7 @@ function adminAction(action) {
     
     const comment = $('#admin-comment-input').val().trim();
     
-    $.post('https://qb-petition/adminAction', JSON.stringify({
+    $.post('https://ss-petition/adminAction', JSON.stringify({
         petitionId: currentPetition.id,
         action: action,
         comment: comment
@@ -475,7 +475,7 @@ function adminAction(action) {
 
 // Refresh petitions data
 function refreshPetitions() {
-    $.post('https://qb-petition/refreshPetitions', {}, function(data) {
+    $.post('https://ss-petition/refreshPetitions', {}, function(data) {
         petitionsData = data.petitions;
         isAdmin = data.isAdmin;
         filterAndRenderPetitions();
@@ -493,7 +493,7 @@ function refreshPetitions() {
 // Close UI and send message to client
 function closeUI() {
     $('body').fadeOut(300);
-    $.post('https://qb-petition/closePetition', JSON.stringify({}));
+    $.post('https://ss-petition/closePetition', JSON.stringify({}));
 }
 
 // Helper Functions

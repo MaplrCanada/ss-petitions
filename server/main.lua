@@ -35,8 +35,8 @@ CreateThread(function()
 end)
 
 -- Create a new petition
-RegisterNetEvent('qb-petition:server:createPetition')
-AddEventHandler('qb-petition:server:createPetition', function(data)
+RegisterNetEvent('ss-petition:server:createPetition')
+AddEventHandler('ss-petition:server:createPetition', function(data)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     
@@ -47,7 +47,7 @@ AddEventHandler('qb-petition:server:createPetition', function(data)
     local hasCooldown = checkPetitionCooldown(citizenId)
     
     if hasCooldown then
-        TriggerClientEvent('qb-petition:client:showNotification', src, Config.Notifications.cooldownActive)
+        TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.cooldownActive)
         return
     end
     
@@ -79,21 +79,21 @@ AddEventHandler('qb-petition:server:createPetition', function(data)
                 signatures = {}
             }
             
-            TriggerClientEvent('qb-petition:client:showNotification', src, Config.Notifications.petitionCreated)
+            TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.petitionCreated)
             
             -- Notify admins if enabled
             if Config.AdminSettings.notifyNewPetition then
                 notifyAdmins('New petition created: ' .. data.title)
             end
         else
-            TriggerClientEvent('qb-petition:client:showNotification', src, "Error creating petition.")
+            TriggerClientEvent('ss-petition:client:showNotification', src, "Error creating petition.")
         end
     end)
 end)
 
 -- Sign a petition
-RegisterNetEvent('qb-petition:server:signPetition')
-AddEventHandler('qb-petition:server:signPetition', function(data)
+RegisterNetEvent('ss-petition:server:signPetition')
+AddEventHandler('ss-petition:server:signPetition', function(data)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     
@@ -105,14 +105,14 @@ AddEventHandler('qb-petition:server:signPetition', function(data)
     
     -- Check if petition exists
     if not Petitions[petitionId] then
-        TriggerClientEvent('qb-petition:client:showNotification', src, "This petition doesn't exist.")
+        TriggerClientEvent('ss-petition:client:showNotification', src, "This petition doesn't exist.")
         return
     end
     
     -- Check if already signed
     for _, signature in ipairs(Petitions[petitionId].signatures) do
         if signature.citizenId == citizenId then
-            TriggerClientEvent('qb-petition:client:showNotification', src, Config.Notifications.alreadySigned)
+            TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.alreadySigned)
             return
         end
     end
@@ -131,7 +131,7 @@ AddEventHandler('qb-petition:server:signPetition', function(data)
         petitionId
     })
     
-    TriggerClientEvent('qb-petition:client:showNotification', src, Config.Notifications.petitionSigned)
+    TriggerClientEvent('ss-petition:client:showNotification', src, Config.Notifications.petitionSigned)
     
     -- Check if reached required signatures
     if #Petitions[petitionId].signatures >= Config.PetitionSettings.requiredSignatures and Petitions[petitionId].status == 'pending' then
@@ -140,8 +140,8 @@ AddEventHandler('qb-petition:server:signPetition', function(data)
 end)
 
 -- Admin actions (approve/reject)
-RegisterNetEvent('qb-petition:server:adminAction')
-AddEventHandler('qb-petition:server:adminAction', function(data)
+RegisterNetEvent('ss-petition:server:adminAction')
+AddEventHandler('ss-petition:server:adminAction', function(data)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     
@@ -149,7 +149,7 @@ AddEventHandler('qb-petition:server:adminAction', function(data)
     
     -- Check admin permission
     if not hasAdminPermission(Player) then
-        TriggerClientEvent('qb-petition:client:showNotification', src, "You don't have permission for this action.")
+        TriggerClientEvent('ss-petition:client:showNotification', src, "You don't have permission for this action.")
         return
     end
     
@@ -159,7 +159,7 @@ AddEventHandler('qb-petition:server:adminAction', function(data)
     
     -- Check if petition exists
     if not Petitions[petitionId] then
-        TriggerClientEvent('qb-petition:client:showNotification', src, "This petition doesn't exist.")
+        TriggerClientEvent('ss-petition:client:showNotification', src, "This petition doesn't exist.")
         return
     end
     
@@ -179,17 +179,17 @@ AddEventHandler('qb-petition:server:adminAction', function(data)
     local author = QBCore.Functions.GetPlayerByCitizenId(Petitions[petitionId].author_id)
     if author then
         if action == 'approve' then
-            TriggerClientEvent('qb-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionApproved)
+            TriggerClientEvent('ss-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionApproved)
         else
-            TriggerClientEvent('qb-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionRejected)
+            TriggerClientEvent('ss-petition:client:showNotification', author.PlayerData.source, Config.Notifications.petitionRejected)
         end
     end
     
-    TriggerClientEvent('qb-petition:client:showNotification', src, "Petition has been " .. action .. "d.")
+    TriggerClientEvent('ss-petition:client:showNotification', src, "Petition has been " .. action .. "d.")
 end)
 
 -- Get petition data for UI
-QBCore.Functions.CreateCallback('qb-petition:server:getPetitionData', function(source, cb)
+QBCore.Functions.CreateCallback('ss-petition:server:getPetitionData', function(source, cb)
     local Player = QBCore.Functions.GetPlayer(source)
     
     if not Player then 
@@ -293,7 +293,7 @@ function notifyAdmins(message)
     for _, playerId in ipairs(players) do
         local Player = QBCore.Functions.GetPlayer(playerId)
         if Player and hasAdminPermission(Player) then
-            TriggerClientEvent('qb-petition:client:showNotification', playerId, message)
+            TriggerClientEvent('ss-petition:client:showNotification', playerId, message)
         end
     end
 end
