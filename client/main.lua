@@ -115,7 +115,7 @@ function IsPlayerAdmin()
     if not PlayerData.job then return false end
     
     for _, group in pairs(Config.AdminGroups) do
-        if QBCore.Functions.HasPermission(group) then
+        if PlayerData.group == group then
             return true
         end
     end
