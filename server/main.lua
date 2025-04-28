@@ -5,6 +5,10 @@ local QBCore = exports['qb-core']:GetCoreObject()
 function IsPlayerAdmin(source)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return false end
+
+     -- Debug: Print the player's permission level
+     local playerGroup = QBCore.Functions.GetPermission(source)
+     print("Player " .. source .. " permission level: " .. tostring(playerGroup))
     
     -- Get player's permission level directly from QBCore
     local playerGroup = QBCore.Functions.GetPermission(source)
