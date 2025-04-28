@@ -6,14 +6,24 @@ function IsPlayerAdmin(source)
     local Player = QBCore.Functions.GetPlayer(source)
     if not Player then return false end
     
-    -- Check if player is in an admin group
+    -- Get player's permission level directly from QBCore
     local playerGroup = QBCore.Functions.GetPermission(source)
-    if playerGroup then
-        for _, adminGroup in pairs(Config.AdminGroups) do
-            if playerGroup == adminGroup then
-                return true
-            end
+    
+    -- First check for exact matches in the admin groups
+    for _, adminGroup in pairs(Config.AdminGroups) do
+        if playerGroup == adminGroup then
+            return true
         end
+    end
+    
+    -- Check for admin status via QBCore's isAdmin function (if available)
+    if QBCore.Functions.HasPermission(source, 'admin') then
+        return true
+    end
+    
+    -- Additional check for god permission
+    if QBCore.Functions.HasPermission(source, 'god') then
+        return true
     end
     
     return false
